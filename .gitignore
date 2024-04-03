@@ -1,0 +1,12 @@
+debug/
+target/
+.vscode/
+
+mycc_py.py
+
+Cargo.lock
+
+**/*.rs.bk
+
+*.pdb
+
