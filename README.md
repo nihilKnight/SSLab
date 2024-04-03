@@ -1,6 +1,10 @@
-# Software Security Lab1
+# Special Add Instrumentation
 
-## Run the code
+## Brief
+
+This code is written for BUAA-SCST SS Lab.
+
+## Quickstart
 
 1. First;
 
