@@ -1,5 +1,4 @@
-use clap::Arg;
-// use std::process::Command;
+use clap::Arg; use std::process::Command;
 
 fn main() {
     let max_file_args_num = 5;
@@ -14,6 +13,7 @@ fn main() {
     let matches = mycc.try_get_matches().unwrap_or_else(|e| e.exit());
 
     if let Some(ins_path) = matches.get_many::<String>("ins_path") {
+        // Command::new("clang++-llvm").arg(ins_path.collect::<Vec<_>>());
         println!("The Instrumental program path is: {:?}.", ins_path.collect::<Vec<_>>());
     } else if let Some(cg_path) = matches.get_many::<String>("cg_path") {
         println!("The Call graph analyzing program path is: {:?}.", cg_path.collect::<Vec<_>>());
