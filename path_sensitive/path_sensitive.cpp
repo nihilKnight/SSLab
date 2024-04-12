@@ -20,7 +20,9 @@
 
 #include <vector>
 #include <iostream>
+#include "z3++.h"
 
+using namespace z3;
 using namespace llvm;
 using namespace std;
 
