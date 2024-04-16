@@ -22,24 +22,23 @@ pub fn compile_assist_program(_some_path: Vec<&String>, _assist_type: AssistProg
             .split(" ")
             .map(|s| s.replace(" ", ""))
             .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ");
+            .collect::<Vec<_>>();
 
-    println!("llvm cxx lib: {:?}", llvm_cxx_lib);
+    // println!("llvm cxx lib: {:?}", llvm_cxx_lib);
 
-    let mut clangxx = Command::new("clang++");
-            clangxx
+    Command::new("clang++")
             .arg(_argus)
-            .arg(llvm_cxx_lib)
+            .arg(&llvm_cxx_lib[0])
+            .arg(&llvm_cxx_lib[llvm_cxx_lib.len()-1])
             .arg("-o")
             .arg(match _assist_type {
                 AssistProgram::Instrumentation => _TMP_INS,
                 AssistProgram::Callgraph => _TMP_CG,
                 AssistProgram::PathSensitive => _TMP_PS
-            });
+            }).output().unwrap();
 
-    println!("command of clang++: {:?}", clangxx);
-    println!("err of clang++: {}", String::from_utf8(clangxx.output().unwrap().stderr).unwrap());
+    // println!("command of clang++: {:?}", clangxx);
+    // println!("err of clang++: {}", String::from_utf8(clangxx.output().unwrap().stderr).unwrap());
     
 }
 
