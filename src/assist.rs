@@ -11,9 +11,11 @@ pub enum AssistProgram {
     PathSensitive
 }
 
-pub fn compile_assist_program(_some_path: Vec<&String>, _assist_type: AssistProgram) {
-    let _argus: String = _some_path.iter().map(|s| &***s).collect::<Vec<_>>().join(" ");
+// the function compiling the asssit program to `_tmp_some` executable.
+pub fn compile_assist_program(some_path: Vec<&String>, assist_type: AssistProgram) -> Result<(), String> {
+    let _argus: String = some_path.iter().map(|s| &***s).collect::<Vec<_>>().join(" ");
 
+    // get the llvm config lib of the current environment.
     let llvm_cxx_lib = String::from_utf8(Command::new("llvm-config")
             .arg("--cxxflags")
             .arg("--libs")
@@ -24,23 +26,31 @@ pub fn compile_assist_program(_some_path: Vec<&String>, _assist_type: AssistProg
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
 
-    // println!("llvm cxx lib: {:?}", llvm_cxx_lib);
-
-    Command::new("clang++")
+    // complie the assist program through clang++.
+    let cmd_res = Command::new("clang++")
             .arg(_argus)
             .arg(&llvm_cxx_lib[0])
             .arg(&llvm_cxx_lib[llvm_cxx_lib.len()-1])
             .arg("-o")
-            .arg(match _assist_type {
+            .arg(match assist_type {
                 AssistProgram::Instrumentation => _TMP_INS,
                 AssistProgram::Callgraph => _TMP_CG,
                 AssistProgram::PathSensitive => _TMP_PS
             }).output().unwrap();
 
-    // println!("command of clang++: {:?}", clangxx);
-    // println!("err of clang++: {}", String::from_utf8(clangxx.output().unwrap().stderr).unwrap());
+    if !cmd_res.stderr.is_empty() {
+        Err(String::from_utf8(cmd_res.stderr).unwrap())
+    } else {
+        Ok(())
+    }
+
+    // Ok(())
     
 }
+
+// pub fn instrumentation(input_path: Vec<&String>, output_path: &String) {
+//     ()
+// }
 
     // Command::new("clang++")
     //     .arg("-S")

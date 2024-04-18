@@ -17,23 +17,41 @@ fn main() {
     let matches = mycc.try_get_matches().unwrap_or_else(|e| e.exit());
 
     if let Some(ins_path) = matches.get_many::<String>("ins_path") {
-        compile_assist_program(
+
+        // the assist program is `instrumentation`.
+        match compile_assist_program(
             ins_path.clone().collect::<Vec<_>>(),
             AssistProgram::Instrumentation
-        );
-        println!("The Instrumentation program path is: {:?}.", ins_path.collect::<Vec<_>>());
+        ){
+            Err(err_msg) => println!("Failed to compile assist program: {}.", err_msg),
+            Ok(_) => (),
+        }
+        // println!("The Instrumentation program path is: {:?}.", ins_path.collect::<Vec<_>>());
+
     } else if let Some(cg_path) = matches.get_many::<String>("cg_path") {
-        compile_assist_program(
+
+        // the assist program is `callgraph`.
+        match compile_assist_program(
             cg_path.clone().collect::<Vec<_>>(),
             AssistProgram::Callgraph
-        );
-        println!("The Call graph analyzing program path is: {:?}.", cg_path.collect::<Vec<_>>());
+        ){
+            Err(err_msg) => println!("Failed to compile assist program: {}.", err_msg),
+            Ok(_) => (),
+        }
+        // println!("The Call graph analyzing program path is: {:?}.", cg_path.collect::<Vec<_>>());
+
     } else if let Some(ps_path) = matches.get_many::<String>("ps_path") {
-        compile_assist_program(
+
+        // the assist program is `path sensitive`.
+        match compile_assist_program(
             ps_path.clone().collect::<Vec<_>>(),
             AssistProgram::PathSensitive
-        );
-        println!("The Path sensitive analyzing program path is: {:?}.", ps_path.collect::<Vec<_>>());
+        ){
+            Err(err_msg) => println!("Failed to compile assist program: {}.", err_msg),
+            Ok(_) => (),
+        }
+        // println!("The Path sensitive analyzing program path is: {:?}.", ps_path.collect::<Vec<_>>());
+
     }
 
     let in_path = matches.get_many::<String>("in_path").unwrap().collect::<Vec<_>>();
