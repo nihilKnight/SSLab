@@ -89,3 +89,4 @@ int xls_isRecordTooSmall(xlsWorkBook *pWB, BOF *bof1, const BYTE* buf) {
     }
     return 0;
 }
+

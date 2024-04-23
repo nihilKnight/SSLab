@@ -21,7 +21,6 @@
 #include <iostream>
 #include "z3++.h"
 #include "block_flow.hpp"
-#include <functional>
 
 using namespace z3;
 using namespace llvm;
@@ -52,7 +51,7 @@ void TraverseFunc(Module *M) {
 	vector<PartialFlowCache*> pfcs;
 
     for (Function &Func: *M) {
-		PartialFlowCache *pfc = new PartialFlowCache();
+		PartialFlowCache *pfc = new PartialFlowCache(string(Func.getName().data()));
         for (BasicBlock &BB: Func) {
 			PartialFlow *pf = new PartialFlow();
 			pfc->addPartialFlow(&BB, pf);
@@ -64,13 +63,13 @@ void TraverseFunc(Module *M) {
 						pf->addLine(line);
 					}
 				}
-				// if the instruction is `Br`.
-				if (Inst.getOpcode() == Instruction::Br) {
-					BranchInst &bri = cast<BranchInst>(Inst);
-					if (bri.isConditional()) {
-						BasicBlock *false_dst = cast<BasicBlock>(bri.getOperand(1));
-						BasicBlock *true_dst = cast<BasicBlock>(bri.getOperand(2));
-						pf->setNextBlocks(vector<BasicBlock*>({false_dst, true_dst}));
+			}
+			Instruction *lastInst = BB.getTerminator();
+			if (lastInst->getOpcode() == Instruction::Br || lastInst->getOpcode() == Instruction::Switch) {
+				for (unsigned int i = 0;i < lastInst->getNumSuccessors(); i ++) {
+					BasicBlock *nextBlock = lastInst->getSuccessor(i);
+					if (pfc->cached_.count(nextBlock) == 0) {
+						pf->setNextBlocks(lastInst->getSuccessor(i));
 					}
 				}
 			}
@@ -78,20 +77,7 @@ void TraverseFunc(Module *M) {
 		pfcs.push_back(pfc);
     }
 
-	// for (pair<BasicBlock*, PartialFlow*> bpPair: (**pfcs.begin()).cached_) {
-	// 	cout << "BasicBlock `" << bpPair.first << "` flow: ";
-	// 	cout << bpPair.second->toString() << endl;
-	// }
 	for (PartialFlowCache *pfc: pfcs) {
-		PartialFlow *beginPartialFlow = pfc->beginPartialFlow_;
-		WholeFlow wf = vector<PartialFlow*>({beginPartialFlow});
-		std::function<void(PartialFlow *)> printFlow;
-		printFlow = [wf, pfc, printFlow](PartialFlow *pf)mutable {
-			wf.push_back(pf);
-			for (auto nextBlock: pf->nextBlocks_) {
-				printFlow(pfc->getPartialFlow(nextBlock));
-			}
-		};
-
+		pfc->printFlow();
 	}
 }

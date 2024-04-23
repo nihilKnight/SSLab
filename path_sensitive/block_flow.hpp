@@ -1,8 +1,10 @@
 #pragma once
 
 #include <llvm/IR/BasicBlock.h>
+#include <functional>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <vector>
 #include <map>
 
@@ -15,6 +17,7 @@ public:
     unsigned int getLastLine();
     void setNextBlocks(llvm::BasicBlock *next);
     void setNextBlocks(std::vector<llvm::BasicBlock*> nexts);
+    bool existLoop();
     std::string toString();
 
 // private:
@@ -27,13 +30,19 @@ class PartialFlowCache {
 public:
 
     // return false if `newFlow` has no line added.
+    PartialFlowCache();
+    PartialFlowCache(std::string funcName);
     void addPartialFlow(llvm::BasicBlock *BB, PartialFlow *newFlow);
     PartialFlow *getPartialFlow(llvm::BasicBlock *BB);
+    void traverseFlow();
+    void printFlow();
 
 // private:
     // map the first line of partial flow to its pointer.
     std::map<llvm::BasicBlock*, PartialFlow*> cached_;
     PartialFlow *beginPartialFlow_;
+    std::string funcName_;
+    std::vector<std::vector<PartialFlow*>> wholeFlows_;
 
     friend class PartialFlow;
 };

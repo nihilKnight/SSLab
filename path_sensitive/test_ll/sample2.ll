@@ -1,5 +1,5 @@
-; ModuleID = 'sample2.c'
-source_filename = "sample2.c"
+; ModuleID = '../testcase/path-sensitive/sample2.c'
+source_filename = "../testcase/path-sensitive/sample2.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux-gnu"
 
@@ -83,7 +83,7 @@ attributes #2 = { "frame-pointer"="all" "no-trapping-math"="true" "stack-protect
 !llvm.ident = !{!9}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "Ubuntu clang version 14.0.0-1ubuntu1.1", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false, nameTableKind: None)
-!1 = !DIFile(filename: "sample2.c", directory: "/home/went/Project/software_security/lab2/testcase/path-sensitive", checksumkind: CSK_MD5, checksum: "f2742e83d026a4d79ea79b05ab4d79e7")
+!1 = !DIFile(filename: "../testcase/path-sensitive/sample2.c", directory: "/home/went/Project/software_security/lab2/path_sensitive", checksumkind: CSK_MD5, checksum: "a26431d0fa2c42c1f31eaa5dbbf622f0")
 !2 = !{i32 7, !"Dwarf Version", i32 5}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
 !4 = !{i32 1, !"wchar_size", i32 4}

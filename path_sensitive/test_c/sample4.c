@@ -101,3 +101,4 @@ int xls_isCellTooSmall(xlsWorkBook* pWB, BOF* bof, BYTE* buf) {
 
     return 0;
 }
+
