@@ -18,9 +18,10 @@
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <vector>
 #include <iostream>
 #include "z3++.h"
+#include "block_flow.hpp"
+#include <functional>
 
 using namespace z3;
 using namespace llvm;
@@ -48,14 +49,49 @@ int main(int argc, char **argv){
 }
 
 void TraverseFunc(Module *M) {
+	vector<PartialFlowCache*> pfcs;
+
     for (Function &Func: *M) {
-        for (inst_iterator I = inst_begin(Func), E = inst_end(Func); I != E; ++ I) {
-            for (Use &U: I->operands()) {
-                Value *V = U.get();
-                Instruction *Inst = dyn_cast<Instruction>(V);
-                const llvm::DebugLoc &D = Inst->getDebugLoc();
-                cout << D->getLine() << endl;
-            }
+		PartialFlowCache *pfc = new PartialFlowCache();
+        for (BasicBlock &BB: Func) {
+			PartialFlow *pf = new PartialFlow();
+			pfc->addPartialFlow(&BB, pf);
+            for (Instruction &Inst: BB) {
+				const DebugLoc &loc = Inst.getDebugLoc();
+				if (loc) {
+					unsigned int line = loc.getLine();
+					if (pf->getLastLine() != line) {
+						pf->addLine(line);
+					}
+				}
+				// if the instruction is `Br`.
+				if (Inst.getOpcode() == Instruction::Br) {
+					BranchInst &bri = cast<BranchInst>(Inst);
+					if (bri.isConditional()) {
+						BasicBlock *false_dst = cast<BasicBlock>(bri.getOperand(1));
+						BasicBlock *true_dst = cast<BasicBlock>(bri.getOperand(2));
+						pf->setNextBlocks(vector<BasicBlock*>({false_dst, true_dst}));
+					}
+				}
+			}
         }
+		pfcs.push_back(pfc);
     }
+
+	// for (pair<BasicBlock*, PartialFlow*> bpPair: (**pfcs.begin()).cached_) {
+	// 	cout << "BasicBlock `" << bpPair.first << "` flow: ";
+	// 	cout << bpPair.second->toString() << endl;
+	// }
+	for (PartialFlowCache *pfc: pfcs) {
+		PartialFlow *beginPartialFlow = pfc->beginPartialFlow_;
+		WholeFlow wf = vector<PartialFlow*>({beginPartialFlow});
+		std::function<void(PartialFlow *)> printFlow;
+		printFlow = [wf, pfc, printFlow](PartialFlow *pf)mutable {
+			wf.push_back(pf);
+			for (auto nextBlock: pf->nextBlocks_) {
+				printFlow(pfc->getPartialFlow(nextBlock));
+			}
+		};
+
+	}
 }
