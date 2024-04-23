@@ -8,6 +8,8 @@
 #include <vector>
 #include <map>
 
+#include "z3++.h"
+
 class PartialFlow {
 public:
 
@@ -17,13 +19,15 @@ public:
     unsigned int getLastLine();
     void setNextBlocks(llvm::BasicBlock *next);
     void setNextBlocks(std::vector<llvm::BasicBlock*> nexts);
-    bool existLoop();
+    void addCondition();
     std::string toString();
 
 // private:
     std::vector<unsigned int> lines_;
     // stores the blocks' first line which might be targeted to. Empty means terminator block.
     std::vector<llvm::BasicBlock*> nextBlocks_;
+    // stores the conditions leading to other blocks.
+    std::map<llvm::BasicBlock*, z3::expr> conditions_;
 };
 
 class PartialFlowCache {

@@ -9,6 +9,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 #include <llvm/IR/DebugLoc.h>
 #include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -19,7 +20,6 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <iostream>
-#include "z3++.h"
 #include "block_flow.hpp"
 
 using namespace z3;
@@ -64,13 +64,20 @@ void TraverseFunc(Module *M) {
 					}
 				}
 			}
+			// append successing blocks.
 			Instruction *lastInst = BB.getTerminator();
-			if (lastInst->getOpcode() == Instruction::Br || lastInst->getOpcode() == Instruction::Switch) {
-				for (unsigned int i = 0;i < lastInst->getNumSuccessors(); i ++) {
-					BasicBlock *nextBlock = lastInst->getSuccessor(i);
-					if (pfc->cached_.count(nextBlock) == 0) {
-						pf->setNextBlocks(lastInst->getSuccessor(i));
-					}
+			switch (lastInst->getOpcode())
+			{
+			case Instruction::Br:
+				// Value *condValue = cast<BranchInst>(*lastInst).getOperand(0);
+				break;
+			default:
+				break;
+			}
+			for (unsigned int i = 0;i < lastInst->getNumSuccessors(); i ++) {
+				BasicBlock *nextBlock = lastInst->getSuccessor(i);
+				if (pfc->cached_.count(nextBlock) == 0) {
+					pf->setNextBlocks(lastInst->getSuccessor(i));
 				}
 			}
         }
