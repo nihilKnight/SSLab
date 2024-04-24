@@ -1,6 +1,6 @@
 mod assist;
 
-use assist::{AssistProgram, compile_assist_program};
+use assist::{AssistProgram, compile_assist_program, instrumentation};
 use clap::Arg;
 
 // const MAX_FILE_ARGS_NUM: usize = 5;
@@ -16,6 +16,9 @@ fn main() {
 
     let matches = mycc.try_get_matches().unwrap_or_else(|e| e.exit());
 
+    let in_path = matches.get_many::<String>("in_path").unwrap().collect::<Vec<_>>().iter().map(|s| (**s).as_str()).collect::<Vec<_>>();
+    let out_path = matches.get_one::<String>("out_path").map(|s| (*s).as_str()).unwrap();
+
     if let Some(ins_path) = matches.get_many::<String>("ins_path") {
 
         // the assist program is `instrumentation`.
@@ -24,7 +27,7 @@ fn main() {
             AssistProgram::Instrumentation
         ){
             Err(err_msg) => println!("Failed to compile assist program: {}.", err_msg),
-            Ok(_) => (),
+            Ok(_) => instrumentation(in_path.clone(), out_path).unwrap(),
         }
         // println!("The Instrumentation program path is: {:?}.", ins_path.collect::<Vec<_>>());
 
@@ -53,9 +56,6 @@ fn main() {
         // println!("The Path sensitive analyzing program path is: {:?}.", ps_path.collect::<Vec<_>>());
 
     }
-
-    let in_path = matches.get_many::<String>("in_path").unwrap().collect::<Vec<_>>();
-    let out_path = matches.get_one::<String>("out_path").map(|s| s.as_str()).unwrap();
 
     println!("The input and output file path is: {:?} & {}.", in_path, out_path);
 

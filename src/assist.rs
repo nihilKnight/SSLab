@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::path::Path;
 
 const _TMP_INS: &str = "_tmp_ins";
 const _TMP_CG: &str = "_tmp_cg";
@@ -25,9 +26,13 @@ pub fn compile_assist_program(some_path: Vec<&String>, assist_type: AssistProgra
             .map(|s| s.replace(" ", ""))
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>();
+    
+    if llvm_cxx_lib.len() == 0 {
+        return Err(String::from("LLVM configuration is not set."))
+    }
 
-    // complie the assist program through clang++.
-    let cmd_res = Command::new("clang++")
+    // compile the assist program through clang++.
+    let compile_res = Command::new("clang++")
             .arg(_argus)
             .arg(&llvm_cxx_lib[0])
             .arg(&llvm_cxx_lib[llvm_cxx_lib.len()-1])
@@ -38,23 +43,40 @@ pub fn compile_assist_program(some_path: Vec<&String>, assist_type: AssistProgra
                 AssistProgram::PathSensitive => _TMP_PS
             }).output().unwrap();
 
-    if !cmd_res.stderr.is_empty() {
-        Err(String::from_utf8(cmd_res.stderr).unwrap())
+    if !compile_res.stderr.is_empty() {
+        Err(String::from_utf8(compile_res.stderr).unwrap())
     } else {
         Ok(())
     }
-
-    // Ok(())
     
 }
 
-// pub fn instrumentation(input_path: Vec<&String>, output_path: &String) {
-//     ()
-// }
+pub fn instrumentation(input_path: Vec<&str>, _output_path: &str) -> Result<(), String>{
 
-    // Command::new("clang++")
-    //     .arg("-S")
-    //     .arg("-emit-llvm")
-    //     .arg(arg)
-    //     .arg("-o")
-    //     .arg("_tmp.ll").output().unwrap();
+    for input in input_path {
+        let path = Path::new(input);
+        let input_name = path.file_stem().unwrap().to_str().unwrap();
+        let input_parent = path.parent().unwrap().to_str().unwrap();
+
+        // compile all input files into IR code.
+        let compile_res = Command::new("clang++")
+            .arg("-S")
+            .arg("-emit-llvm")
+            .arg(input)
+            .arg("-o")
+            .arg(input_parent.to_owned() + "_" + input_name + ".ll").output().unwrap();
+
+        // perform instrumentation on all IR codes.
+
+        if !compile_res.stderr.is_empty() {
+            // remove all temp files.
+            Command::new("rm").arg("-rf").arg(input_parent.to_owned() + "_*").output().unwrap();
+            return Err(String::from_utf8(compile_res.stderr).unwrap())
+        }
+    }
+
+
+
+    Ok(())
+}
+
