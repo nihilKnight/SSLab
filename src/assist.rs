@@ -53,28 +53,38 @@ pub fn compile_assist_program(some_path: Vec<&String>, assist_type: AssistProgra
 
 pub fn instrumentation(input_path: Vec<&str>, _output_path: &str) -> Result<(), String>{
 
-    for input in input_path {
+    for input in input_path.iter() {
         let path = Path::new(input);
         let input_name = path.file_stem().unwrap().to_str().unwrap();
-        let input_parent = path.parent().unwrap().to_str().unwrap();
-
+        let input_parent = path.parent().unwrap();
+        
         // compile all input files into IR code.
         let compile_res = Command::new("clang++")
             .arg("-S")
             .arg("-emit-llvm")
             .arg(input)
             .arg("-o")
-            .arg(input_parent.to_owned() + "_" + input_name + ".ll").output().unwrap();
+            .arg(input_parent.join(input_name.to_owned() + ".ll")).output().unwrap();
 
         // perform instrumentation on all IR codes.
+        let instrumentation_res = Command::new(_TMP_INS)
+            .arg(input_parent.join(input_name.to_owned() + ".ll"))
+            .arg(input_parent.join("_".to_owned() + input_name + ".ll")).output().unwrap();
 
-        if !compile_res.stderr.is_empty() {
+        // assemble input files to object code.
+        let assemble_res = Command::new("clang++")
+            .arg("-c")
+            .arg(input_parent.join("_".to_owned() + input_name + ".ll"))
+            .arg(input_parent.join("_".to_owned() + input_name + ".o")).output().unwrap();
+
+        if !compile_res.stderr.is_empty() || !instrumentation_res.stderr.is_empty() || !assemble_res.stderr.is_empty() {
             // remove all temp files.
-            Command::new("rm").arg("-rf").arg(input_parent.to_owned() + "_*").output().unwrap();
             return Err(String::from_utf8(compile_res.stderr).unwrap())
         }
+
     }
 
+    let _tmp_object = input_path.iter().map(|s| Path::new(*s).parent().unwrap().join(Path::new(*s).file_stem().unwrap().to_str().unwrap().to_owned() + ".o")).collect::<Vec<_>>();
 
 
     Ok(())
