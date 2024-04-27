@@ -2,7 +2,7 @@ debug/
 target/
 .vscode/
 
-mycc_py.py
+outputs/
 
 Cargo.lock
 
