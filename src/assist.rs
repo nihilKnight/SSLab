@@ -46,6 +46,7 @@ pub fn compile_assist_program(some_path: Vec<&String>, assist_type: AssistProgra
     // compile the assist program through clang++.
     match Command::new("clang++")
         .args(some_path)
+        .arg("-lz3")
         .args(&llvm_cxx_lib)
         .arg("-o")
         .arg(match assist_type {
@@ -198,7 +199,7 @@ pub fn callgraph(input_path: Vec<&str>, output_path: &str, cxx_flag: bool) -> Re
             None => return Err(String::from("Failed to get the parent dirs of input assist file path."))
         };
         let tmp_ir = input_parent.join(input_name.to_owned() + ".ll");
-        
+
         // compile all input files into IR code.
         match Command::new(clang_compiler)
             .arg("-S")
@@ -258,7 +259,7 @@ pub fn callgraph(input_path: Vec<&str>, output_path: &str, cxx_flag: bool) -> Re
             Ok(output) => {
                 if !output.stderr.is_empty() {
                     return Err(match String::from_utf8(output.stderr) { Ok(err_msg) => err_msg, Err(e) => e.to_string() })
-                }; 
+                }
                 Ok(())
             },
             Err(e) => Err(e.to_string())
@@ -267,7 +268,63 @@ pub fn callgraph(input_path: Vec<&str>, output_path: &str, cxx_flag: bool) -> Re
 }
 
 pub fn path_sensitive(input_path: Vec<&str>, output_path: &str, cxx_flag: bool) -> Result<(), String> {
-    unimplemented!("unimplemented callgraph, {}, {}, {}", input_path.join(" "), output_path, cxx_flag);
+    let clang_compiler = if cxx_flag { "clang++" } else { "clang" };
+
+    for input in input_path.iter() {
+        let path = Path::new(input);
+        let input_name = match path.file_stem() {
+            Some(stem) => match stem.to_str() {
+                Some(stem_str) => stem_str,
+                None => return Err(String::from("Failed to convert &OsStr to &str."))
+            }
+            None => return Err(String::from("Failed to split the input assist file path."))
+        };
+        let input_parent = match path.parent() {
+            Some(parent) => parent,
+            None => return Err(String::from("Failed to get the parent dirs of input assist file path."))
+        };
+        let tmp_ir = input_parent.join(input_name.to_owned() + ".ll");
+
+        // compile all input files into IR code.
+        match Command::new(clang_compiler)
+            .arg("-o0")
+            .arg("-g")
+            .arg("-S")
+            .arg("-emit-llvm")
+            .arg(input)
+            .arg("-o")
+            .arg(tmp_ir.clone()).output() {
+                Ok(output) => {
+                    if !output.stderr.is_empty() {
+                        return Err(match String::from_utf8(output.stderr) { Ok(err_msg) => err_msg, Err(e) => e.to_string() })
+                    }
+                },
+                Err(e) => return Err(e.to_string())
+            }
+
+        // conduct path sensitive analysis.
+        match Command::new(_ASSIST_DIR.to_owned() + _TMP_PS)
+            .arg(tmp_ir.clone())
+            .arg(output_path).output() {
+                Ok(output) => {
+                    if !output.stderr.is_empty() {
+                        return Err(match String::from_utf8(output.stderr) { Ok(err_msg) => err_msg, Err(e) => e.to_string() })
+                    }
+                },
+                Err(e) => return Err(e.to_string())
+            }
+
+        match Command::new("rm").arg("-f").arg(tmp_ir.clone()).output() {
+                Ok(output) => {
+                    if !output.stderr.is_empty() {
+                        return Err(match String::from_utf8(output.stderr) { Ok(err_msg) => err_msg, Err(e) => e.to_string() })
+                    }
+                },
+                Err(e) => return Err(e.to_string())
+            }
+    }
+
+    Ok(())
 }
 
 fn rm_temp_files(tmp_files: Vec<String>) -> Result<(), String> {

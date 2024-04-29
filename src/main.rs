@@ -49,7 +49,7 @@ fn main() {
         match exist_assist_file(AssistProgram::Callgraph) {
             Ok(founded)  => {
                 if !(cached_flag && founded) {
-                    match compile_assist_program(cg_path.clone().collect::<Vec<_>>(),AssistProgram::Instrumentation)
+                    match compile_assist_program(cg_path.clone().collect::<Vec<_>>(),AssistProgram::Callgraph)
                     { Err(err_msg) => println!("Failed to compile callgraph program:\n{}", err_msg), Ok(_) => () }
                 }
                 match callgraph(in_path.clone(), out_path, cxx_flag)
@@ -66,7 +66,7 @@ fn main() {
         match exist_assist_file(AssistProgram::PathSensitive) {
             Ok(founded)  => {
                 if !(cached_flag && founded) {
-                    match compile_assist_program(ps_path.clone().collect::<Vec<_>>(),AssistProgram::Instrumentation)
+                    match compile_assist_program(ps_path.clone().collect::<Vec<_>>(),AssistProgram::PathSensitive)
                     { Err(err_msg) => println!("Failed to compile path sensitive program:\n{}", err_msg), Ok(_) => () }
                 }
                 match path_sensitive(in_path.clone(), out_path, cxx_flag)
