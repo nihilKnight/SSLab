@@ -27,6 +27,8 @@ using namespace llvm;
 using namespace std;
 
 void TraverseFunc(Module *M);
+expr ConvertOperandToExpr(Value* operand, context& c);
+expr LLVMInstructionToZ3Expr(Instruction* inst, context& c);
 
 int main(int argc, char **argv){
 	if (argc != 2) {
@@ -48,10 +50,11 @@ int main(int argc, char **argv){
 }
 
 void TraverseFunc(Module *M) {
-	vector<PartialFlowCache*> pfcs;
+	config cfg;
+    vector<PartialFlowCache*> pfcs;
 
     for (Function &Func: *M) {
-		PartialFlowCache *pfc = new PartialFlowCache(string(Func.getName().data()));
+		PartialFlowCache *pfc = new PartialFlowCache(string(Func.getName().data()), cfg);
         for (BasicBlock &BB: Func) {
 			PartialFlow *pf = new PartialFlow();
 			pfc->addPartialFlow(&BB, pf);
@@ -63,28 +66,176 @@ void TraverseFunc(Module *M) {
 						pf->addLine(line);
 					}
 				}
+                expr cond = LLVMInstructionToZ3Expr(&Inst, *pfc->context_);
+                pfc->addBasicCondition(cond);
 			}
+
 			// append successing blocks.
 			Instruction *lastInst = BB.getTerminator();
-			switch (lastInst->getOpcode())
-			{
-			case Instruction::Br:
-				// Value *condValue = cast<BranchInst>(*lastInst).getOperand(0);
-				break;
-			default:
-				break;
-			}
-			for (unsigned int i = 0;i < lastInst->getNumSuccessors(); i ++) {
-				BasicBlock *nextBlock = lastInst->getSuccessor(i);
-				if (pfc->cached_.count(nextBlock) == 0) {
-					pf->setNextBlocks(lastInst->getSuccessor(i));
+			if (lastInst->getOpcode() == Instruction::Br) {
+				BranchInst *brInst = dyn_cast<BranchInst>(lastInst);
+				if (brInst->isConditional()) {
+					expr cond = ConvertOperandToExpr(brInst->getCondition(), *(pfc->context_));
+					pf->addJumpCondition(brInst->getSuccessor(0), cond == 1);
+					pf->addJumpCondition(brInst->getSuccessor(1), cond == 0);
+					pf->setNextBlocks({brInst->getSuccessor(0), brInst->getSuccessor(1)});
+				} else {
+					pf->addJumpCondition(brInst->getSuccessor(0), pfc->context_->bool_val(true));
+					pf->setNextBlocks(brInst->getSuccessor(0));
+				}
+			} else if (lastInst->getOpcode() == Instruction::Switch) {
+				SwitchInst *swiInst = dyn_cast<SwitchInst>(lastInst);
+				expr cond = ConvertOperandToExpr(swiInst->getCondition(), *(pfc->context_));
+				pf->addJumpCondition(swiInst->getDefaultDest(), pfc->context_->bool_val(true));
+				for (auto caseInst: swiInst->cases()) {
+					expr caseCond = (cond == pfc->context_->bv_val(caseInst.getCaseValue()->getSExtValue(), cond.get_sort()));
+                	pf->addJumpCondition(caseInst.getCaseSuccessor(), caseCond);
+					pf->setNextBlocks(caseInst.getCaseSuccessor());
 				}
 			}
+
+		    pfcs.push_back(pfc);
+
         }
-		pfcs.push_back(pfc);
     }
 
-	for (PartialFlowCache *pfc: pfcs) {
-		pfc->printFlow();
-	}
+    for (PartialFlowCache *pfc: pfcs) {
+        pfc->printFlow();
+    }
+
+}
+
+expr ConvertOperandToExpr(Value* operand, z3::context &c) {
+    // 检查操作数是否为常量
+    if (ConstantInt* constInt = dyn_cast<ConstantInt>(operand)) {
+        // cout << "const: " << constInt->getValue().getSExtValue() << " -> " << c.bv_val(constInt->getValue().getSExtValue(), 64) << endl;
+        return c.bv_val(constInt->getValue().getSExtValue(), 64);
+    } else {
+        string str;
+        raw_string_ostream stream(str);
+        stream << operand;
+        stream.flush();
+        // cout << "variable: " << str.c_str() << endl;
+        return c.bv_const(str.c_str(), 64);
+    }
+}
+
+expr LLVMInstructionToZ3Expr(Instruction* inst, z3::context &c) {
+    // printInst(inst);
+    expr result = c.bool_val(true);
+    expr lhs = c.bool_val(true);
+    expr rhs1 = c.bool_val(true);
+    expr rhs2 = c.bool_val(true);
+    LoadInst *LI;
+
+    // 根据不同的指令类型进行转换
+    switch (inst->getOpcode()) {
+        case Instruction::BinaryOps::Add:
+        case Instruction::BinaryOps::Sub:
+        case Instruction::BinaryOps::Mul:
+        case Instruction::BinaryOps::UDiv:
+        case Instruction::BinaryOps::SDiv:
+        case Instruction::BinaryOps::URem:
+        case Instruction::BinaryOps::SRem:
+        case Instruction::BinaryOps::And:
+        case Instruction::BinaryOps::Or:
+        case Instruction::BinaryOps::Xor:
+            // cout << "################## BinaryOperator ##################" << endl;
+            // 二元运算
+
+            lhs = ConvertOperandToExpr(inst, c);
+            rhs1 = ConvertOperandToExpr(inst->getOperand(0), c);
+            rhs2 = ConvertOperandToExpr(inst->getOperand(1), c);
+
+            switch (inst->getOpcode()) {
+                case Instruction::BinaryOps::Add:
+                    // result = (lhs == (rhs1 + rhs2));
+                    // break;
+                    return (lhs == (rhs1 + rhs2));
+                case Instruction::BinaryOps::Sub:
+                    // result = (lhs == (rhs1 - rhs2));
+                    // break;
+                    return (lhs == (rhs1 - rhs2));
+                case Instruction::BinaryOps::Mul:
+                    // result = (lhs == (rhs1 * rhs2));
+                    // break;
+                    return rhs1 * rhs2;
+                case Instruction::BinaryOps::UDiv:
+                    // result = (lhs == (rhs1 / rhs2));
+                    // break;
+                    return udiv(rhs1, rhs2);
+                case Instruction::BinaryOps::SDiv:
+                    // result = (lhs == (rhs1 / rhs2)); // 需要考虑符号扩展
+                    // break;
+                    return rhs1 / rhs2;
+                case Instruction::BinaryOps::URem:
+                    // result = (lhs == (rhs1 % rhs2));
+                    // break;
+                    return urem(rhs1, rhs2);
+                case Instruction::BinaryOps::SRem:
+                    // result = (lhs == (rhs1 % rhs2)); // 需要考虑符号扩展
+                    // break;
+                    return rhs1 % rhs2;
+                case Instruction::BinaryOps::And:
+                    // result = (lhs == (rhs1 && rhs2));
+                    // break;
+                    return rhs1 & rhs2;
+                case Instruction::BinaryOps::Or:
+                    // result = (lhs == (rhs1 || rhs2));
+                    // break;
+                    return rhs1 | rhs2;
+                case Instruction::BinaryOps::Xor:
+                    // result = (lhs == (rhs1 ^ rhs2));
+                    // break;
+                    return rhs1 ^ rhs2;
+                default:
+                    // 其他算术运算根据需要添加
+                    break;
+            }
+            break;
+        case Instruction::ICmp:
+            // cout << "################## ICmp ##################" << endl;
+            // 比较运算
+            lhs = ConvertOperandToExpr(inst, c);
+            rhs1 = ConvertOperandToExpr(inst->getOperand(0), c);
+            rhs2 = ConvertOperandToExpr(inst->getOperand(1), c);
+            switch (cast<ICmpInst>(inst)->getPredicate()) {
+                case ICmpInst::Predicate::ICMP_EQ:
+                    // result = (lhs == (rhs1 == rhs2));
+                    // break;
+                    return rhs1 == rhs2;
+                case ICmpInst::Predicate::ICMP_NE:
+                    // result = (lhs == (rhs1 != rhs2));
+                    // break;
+                    return rhs1 != rhs2;
+                case ICmpInst::Predicate::ICMP_SGT:
+                    // result = (lhs == (rhs1 > rhs2));
+                    // break;
+                    return sgt(rhs1, rhs2);
+                case ICmpInst::Predicate::ICMP_SGE:
+                    // result = (lhs == (rhs1 >= rhs2));
+                    // break;
+                    return sge(rhs1, rhs2);
+                case ICmpInst::Predicate::ICMP_SLT:
+                    // result = (lhs == (rhs1 < rhs2));
+                    // break;
+                    return slt(rhs1, rhs2);
+                case ICmpInst::Predicate::ICMP_SLE:
+                    // result = (lhs == (rhs1 <= rhs2));
+                    // break;
+                    return sle(rhs1, rhs2);
+                default:
+                    // 其他比较运算根据需要添加
+                    break;
+            }
+            break;
+        case Instruction::Load:
+            // printLoad(inst);
+
+        default:
+            // cout << "Unhandled instruction type: " << inst->getOpcodeName() << endl;
+            break;
+    }
+
+    return result;
 }

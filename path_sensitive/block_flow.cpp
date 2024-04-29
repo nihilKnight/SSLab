@@ -2,6 +2,7 @@
 
 using namespace std;
 using namespace llvm;
+using namespace z3;
 
 void PartialFlow::addLine(unsigned int line) {
     lines_.push_back(line);
@@ -23,6 +24,14 @@ void PartialFlow::setNextBlocks(vector<BasicBlock*> nexts) {
     nextBlocks_.insert(nextBlocks_.begin(), nexts.begin(), nexts.end());
 }
 
+void PartialFlow::addJumpCondition(BasicBlock *next, expr expression) {
+    conditions_.insert(pair<BasicBlock*, expr>(next, expression));
+}
+
+expr PartialFlow::getJumpCondition(BasicBlock *next) {
+    return conditions_.at(next);
+}
+
 string PartialFlow::toString() {
     stringstream buffer;
     for (auto it = lines_.begin(); it != lines_.end(); it ++ ) {
@@ -33,13 +42,11 @@ string PartialFlow::toString() {
 }
 
 
-PartialFlowCache::PartialFlowCache() {
-    return;
-}
-
-PartialFlowCache::PartialFlowCache(std::string funcName) {
+PartialFlowCache::PartialFlowCache(string funcName, config &cfg) {
     funcName_ = funcName;
     beginPartialFlow_ = nullptr;
+    context_ = make_shared<context>(cfg);
+    solver_ = make_unique<solver>(*context_);
 }
 
 void PartialFlowCache::addPartialFlow(BasicBlock *BB, PartialFlow *newFlow) {
@@ -49,22 +56,44 @@ void PartialFlowCache::addPartialFlow(BasicBlock *BB, PartialFlow *newFlow) {
     cached_.insert(pair<BasicBlock*, PartialFlow*>(BB, newFlow));
 }
 
-PartialFlow* PartialFlowCache::getPartialFlow(BasicBlock *BB) {
+bool PartialFlowCache::havePartialFlow(BasicBlock *BB) {
+    return cached_.count(BB) >= 1;
+}
+
+PartialFlow *PartialFlowCache::getPartialFlow(BasicBlock *BB) {
     return cached_.at(BB);
+}
+
+void PartialFlowCache::addBasicCondition(expr expression) {
+    solver_->add(expression);
+}
+
+void PartialFlowCache::popBasicCondition() {
+    solver_->pop();
+}
+
+bool PartialFlowCache::calcCondition() {
+    return solver_->check() == sat;
 }
 
 void PartialFlowCache::traverseFlow() {
     if (! beginPartialFlow_) return;
 
     WholeFlow wf = vector<PartialFlow*>();
-    function<void(PartialFlow*)> traverse;
+    std::function<void(PartialFlow*)> traverse;
     traverse = [wf, this, &traverse](PartialFlow *pf)mutable {
         wf.push_back(pf);
         if (pf->nextBlocks_.empty()) {
-            wholeFlows_.push_back(wf);
+            totalFlows_.push_back(wf);
+            if (this->calcCondition()) {
+                reachableFlows_.push_back(wf);
+            }
         } else {
             for (auto nextBlock: pf->nextBlocks_) {
+                expr cond = pf->getJumpCondition(nextBlock);
+                this->addBasicCondition(cond);
                 traverse(this->getPartialFlow(nextBlock));
+                this->popBasicCondition();
             }
         }
         wf.pop_back();
@@ -75,17 +104,26 @@ void PartialFlowCache::traverseFlow() {
 
 void PartialFlowCache::printFlow() {
     if (! beginPartialFlow_) return;
-    if (wholeFlows_.empty()) {
+    if (totalFlows_.empty()) {
         this->traverseFlow();
     }
     cout << "[+] Function Name: " << funcName_ << endl;
-    cout << "[+] Total paths: " << wholeFlows_.size() << endl;
-    for (WholeFlow wf: wholeFlows_) {
+    cout << "[+] Total paths: " << totalFlows_.size() << endl;
+    for (WholeFlow wf: totalFlows_) {
         for (auto it = wf.begin(); it != wf.end(); it ++) {
             cout << (*it)->toString() << (it == wf.end()-1 ? "" : "->");
         }
         cout << endl;
     }
+
+    cout << "[+] Reachable path: " << reachableFlows_.size() << endl;
+    for (WholeFlow wf: reachableFlows_) {
+        for (auto it = wf.begin(); it != wf.end(); it ++) {
+            cout << (*it)->toString() << (it == wf.end()-1 ? "" : "->");
+        }
+        cout << endl;
+    }
+
     cout << endl;
 }
 
