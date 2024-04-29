@@ -66,8 +66,10 @@ void TraverseFunc(Module *M) {
 						pf->addLine(line);
 					}
 				}
-                expr cond = LLVMInstructionToZ3Expr(&Inst, *pfc->context_);
-                pfc->addBasicCondition(cond);
+                // if (Inst.getOpcode() == Instruction::Br || Inst.getOpcode() == Instruction::Switch) {
+                //     expr cond = LLVMInstructionToZ3Expr(&Inst, *pfc->context_);
+                //     pfc->addBasicCondition(cond);
+                // }
 			}
 
 			// append successing blocks.
@@ -128,6 +130,8 @@ expr LLVMInstructionToZ3Expr(Instruction* inst, z3::context &c) {
     expr rhs2 = c.bool_val(true);
     LoadInst *LI;
 
+    cout << inst->getOpcode() << endl;
+
     // 根据不同的指令类型进行转换
     switch (inst->getOpcode()) {
         case Instruction::BinaryOps::Add:
@@ -151,15 +155,15 @@ expr LLVMInstructionToZ3Expr(Instruction* inst, z3::context &c) {
                 case Instruction::BinaryOps::Add:
                     // result = (lhs == (rhs1 + rhs2));
                     // break;
-                    return (lhs == (rhs1 + rhs2));
+                    return lhs == (rhs1 + rhs2);
                 case Instruction::BinaryOps::Sub:
                     // result = (lhs == (rhs1 - rhs2));
                     // break;
-                    return (lhs == (rhs1 - rhs2));
+                    return lhs == (rhs1 - rhs2);
                 case Instruction::BinaryOps::Mul:
                     // result = (lhs == (rhs1 * rhs2));
                     // break;
-                    return rhs1 * rhs2;
+                    return lhs == (rhs1 * rhs2);
                 case Instruction::BinaryOps::UDiv:
                     // result = (lhs == (rhs1 / rhs2));
                     // break;
@@ -167,7 +171,7 @@ expr LLVMInstructionToZ3Expr(Instruction* inst, z3::context &c) {
                 case Instruction::BinaryOps::SDiv:
                     // result = (lhs == (rhs1 / rhs2)); // 需要考虑符号扩展
                     // break;
-                    return rhs1 / rhs2;
+                    return lhs == (rhs1 / rhs2);
                 case Instruction::BinaryOps::URem:
                     // result = (lhs == (rhs1 % rhs2));
                     // break;
@@ -175,19 +179,19 @@ expr LLVMInstructionToZ3Expr(Instruction* inst, z3::context &c) {
                 case Instruction::BinaryOps::SRem:
                     // result = (lhs == (rhs1 % rhs2)); // 需要考虑符号扩展
                     // break;
-                    return rhs1 % rhs2;
+                    return lhs == (rhs1 % rhs2);
                 case Instruction::BinaryOps::And:
                     // result = (lhs == (rhs1 && rhs2));
                     // break;
-                    return rhs1 & rhs2;
+                    return lhs == (rhs1 & rhs2);
                 case Instruction::BinaryOps::Or:
                     // result = (lhs == (rhs1 || rhs2));
                     // break;
-                    return rhs1 | rhs2;
+                    return lhs == (rhs1 | rhs2);
                 case Instruction::BinaryOps::Xor:
                     // result = (lhs == (rhs1 ^ rhs2));
                     // break;
-                    return rhs1 ^ rhs2;
+                    return lhs == (rhs1 ^ rhs2);
                 default:
                     // 其他算术运算根据需要添加
                     break;
