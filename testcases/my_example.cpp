@@ -22,7 +22,11 @@ void *Task(void *data) {
     pthread_mutex_lock(&mutex_x);
     std::cout << "Thread " << thread_data->id << ": Get mutex x." << std::endl;
 
-    shared_x ++;
+    if (thread_data->id > 3) {
+        shared_x = 1;
+    } else {
+        shared_x = 0;
+    }
 
     std::cout << "Thread " << thread_data->id << ": Return mutex x." << std::endl;
     pthread_mutex_unlock(&mutex_x);
@@ -38,6 +42,11 @@ void MultiThreadRun() {
 
     pthread_t threads[MAX_THREADS];
     struct Data thread_datas[MAX_THREADS];
+    pthread_attr_t attr;
+    void *status;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
     for (int i = 0; i < MAX_THREADS; i ++) {
         thread_datas[i].id = i;
@@ -46,11 +55,20 @@ void MultiThreadRun() {
     }
 
     for (int i = 0;i < MAX_THREADS; i ++) {
-        if ( pthread_create(&threads[i], NULL, Task, &thread_datas[i]) ) {
+        if ( pthread_create(&threads[i], &attr, Task, &thread_datas[i]) ) {
             fprintf(stderr, "Failed to create a new thread.");
             exit(-1);
         }
     }
+
+    pthread_attr_destroy(&attr);
+
+    for (int i = 0; i < MAX_THREADS; i ++) {
+        pthread_join(threads[i], &status);
+        free(thread_datas[i].msg);
+    }
+
+    std::cout << "MultiThreadRun(): The final answer of x is: " << shared_x << std::endl;
 
     pthread_exit(NULL);
 
@@ -62,6 +80,8 @@ void MultiThreadRun() {
 int main() {
 
     my_example::MultiThreadRun();
+
+    return 0;
 
 }
 
